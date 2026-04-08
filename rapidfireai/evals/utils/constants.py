@@ -57,9 +57,16 @@ def get_dispatcher_url() -> str:
     Auto-detect dispatcher URL based on environment.
 
     Returns:
+        - If ``RF_DISPATCHER_PUBLIC_URL`` is set (e.g. ngrok to a remote machine): that HTTPS base URL
         - In Google Colab: Uses Colab's kernel proxy URL (e.g., https://xxx-8851-xxx.ngrok-free.app)
         - In Jupyter/Local: Uses localhost URL (http://127.0.0.1:8851)
     """
+    public = (os.getenv("RF_DISPATCHER_PUBLIC_URL") or "").strip()
+    if public:
+        url = public.rstrip("/")
+        print(f"🌐 Using RF_DISPATCHER_PUBLIC_URL for dispatcher: {url}")
+        return url
+
     if ColabConfig.ON_COLAB:
         try:
             from google.colab.output import eval_js

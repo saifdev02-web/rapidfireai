@@ -10,6 +10,8 @@ import time
 import requests
 from IPython.display import display
 
+from rapidfireai.utils.constants import get_dispatcher_client_base_url
+
 try:
     import ipywidgets as widgets
 except ImportError as e:
@@ -19,8 +21,8 @@ except ImportError as e:
 class InteractiveController:
     """Interactive run controller for notebooks"""
 
-    def __init__(self, dispatcher_url: str = "http://127.0.0.1:8851"):
-        self.dispatcher_url = dispatcher_url.rstrip("/")
+    def __init__(self, dispatcher_url: str | None = None):
+        self.dispatcher_url = (dispatcher_url or get_dispatcher_client_base_url()).rstrip("/")
         self.run_id: int | None = None
         self.config: dict | None = None
         self.status: str = "Unknown"
@@ -28,6 +30,13 @@ class InteractiveController:
 
         # Create UI widgets
         self._create_widgets()
+
+    def _request_headers(self) -> dict[str, str]:
+        """Extra headers for dispatcher HTTP calls (ngrok free tier interstitial bypass)."""
+        headers: dict[str, str] = {}
+        if "ngrok" in self.dispatcher_url.lower():
+            headers["ngrok-skip-browser-warning"] = "true"
+        return headers
 
     def _create_widgets(self):
         """Create ipywidgets UI components"""
@@ -160,6 +169,7 @@ class InteractiveController:
         try:
             response = requests.get(
                 f"{self.dispatcher_url}/dispatcher/get-all-runs",
+                headers=self._request_headers(),
                 timeout=5,
             )
             response.raise_for_status()
@@ -214,6 +224,7 @@ class InteractiveController:
         try:
             response = requests.get(
                 f"{self.dispatcher_url}/dispatcher/get-all-runs",
+                headers=self._request_headers(),
                 timeout=5,
             )
             response.raise_for_status()
@@ -254,6 +265,7 @@ class InteractiveController:
             response = requests.post(
                 f"{self.dispatcher_url}/dispatcher/get-run",
                 json={"run_id": run_id},
+                headers=self._request_headers(),
                 timeout=5,
             )
             response.raise_for_status()
@@ -295,6 +307,7 @@ class InteractiveController:
             response = requests.post(
                 f"{self.dispatcher_url}/dispatcher/resume-run",
                 json={"run_id": self.run_id},
+                headers=self._request_headers(),
                 timeout=5,
             )
             response.raise_for_status()
@@ -314,6 +327,7 @@ class InteractiveController:
             response = requests.post(
                 f"{self.dispatcher_url}/dispatcher/stop-run",
                 json={"run_id": self.run_id},
+                headers=self._request_headers(),
                 timeout=5,
             )
             response.raise_for_status()
@@ -333,6 +347,7 @@ class InteractiveController:
             response = requests.post(
                 f"{self.dispatcher_url}/dispatcher/delete-run",
                 json={"run_id": self.run_id},
+                headers=self._request_headers(),
                 timeout=5,
             )
             response.raise_for_status()
@@ -400,6 +415,7 @@ class InteractiveController:
                     "config": new_config,
                     "warm_start": self.warm_start_checkbox.value,
                 },
+                headers=self._request_headers(),
                 timeout=5,
             )
             response.raise_for_status()

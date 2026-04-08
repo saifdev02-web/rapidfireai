@@ -45,6 +45,21 @@ class DispatcherConfig:
     def __str__(self):
         return f"DispatcherConfig(HOST={self.HOST}, PORT={self.PORT}, URL={self.URL})"
 
+
+def get_dispatcher_client_base_url() -> str:
+    """
+    Base URL for HTTP clients (e.g. InteractiveController) to reach the fit dispatcher.
+
+    If ``RF_DISPATCHER_PUBLIC_URL`` is set (e.g. ``https://*.ngrok-free.app`` when tunneling a remote
+    machine's port 8851), that value is used. Otherwise falls back to :attr:`DispatcherConfig.URL`
+    (``http://RF_API_HOST:RF_API_PORT``).
+    """
+
+    public = (os.getenv("RF_DISPATCHER_PUBLIC_URL") or "").strip()
+    if public:
+        return public.rstrip("/")
+    return DispatcherConfig.URL.rstrip("/")
+
 # Frontend Constants
 class FrontendConfig:
     """Class to manage the frontend configuration"""
