@@ -183,6 +183,7 @@
     "jest-localstorage-mock": "^2.3.0",
     "knip": "^5.30.2",
     "msw": "^1.2.3",
+    "postcss": "^8.4.38",
     "prettier": "^2.8.0",
     "react-17": "npm:react@^17.0.2",
     "react-dom-17": "npm:react-dom@^17.0.2",
@@ -202,6 +203,7 @@
     "node": "^22.16.0"
   },
   "resolutions": {
+    "postcss": "^8.4.38",
     "ajv": "^8.18.0",
     "@floating-ui/dom@^0.5.3": "patch:@floating-ui/dom@npm%3A0.5.4#yarn/patches/@floating-ui-dom-0.5.4.diff",
     "@types/react": "^17.0.50",
