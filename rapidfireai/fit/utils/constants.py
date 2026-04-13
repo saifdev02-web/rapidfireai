@@ -40,6 +40,8 @@ class DBConfig:
     BUSY_TIMEOUT: int = int(os.getenv("RF_SQLITE_BUSY_TIMEOUT", "30000"))
     # WAL can fail on some network filesystems; use DELETE via RF_SQLITE_JOURNAL_MODE=DELETE
     JOURNAL_MODE: str = os.getenv("RF_SQLITE_JOURNAL_MODE", "WAL").strip().upper()
+    # If still seeing OperationalError: disk I/O error, set RF_SQLITE_SAFE_MODE=1 (minimal PRAGMAs only).
+    SAFE_MODE: bool = os.getenv("RF_SQLITE_SAFE_MODE", "").strip().lower() in ("1", "true", "yes")
 
     # Retry settings
     DEFAULT_MAX_RETRIES: int = 3

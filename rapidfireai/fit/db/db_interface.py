@@ -28,20 +28,31 @@ class DatabaseInterface:
                 isolation_level=None,
             )
 
-            # Configure database with all PRAGMA settings.
-            # RF_SQLITE_MMAP_SIZE=0 and RF_SQLITE_JOURNAL_MODE=DELETE help on NFS / odd mounts
-            # where mmap or WAL can raise sqlite3.OperationalError: disk I/O error.
-            journal = DBConfig.JOURNAL_MODE if DBConfig.JOURNAL_MODE in ("WAL", "DELETE", "TRUNCATE", "PERSIST", "OFF", "MEMORY") else "WAL"
-            pragma_sql = f"""
-            PRAGMA cache_size={DBConfig.CACHE_SIZE};
-            PRAGMA mmap_size={DBConfig.MMAP_SIZE};
-            PRAGMA page_size={DBConfig.PAGE_SIZE};
-            PRAGMA busy_timeout={DBConfig.BUSY_TIMEOUT};
-            PRAGMA journal_mode={journal};
-            PRAGMA synchronous=NORMAL;
-            PRAGMA temp_store=MEMORY;
-            PRAGMA foreign_keys=ON;
-            """
+            # Configure database with PRAGMA settings.
+            # RF_SQLITE_SAFE_MODE=1: only busy_timeout + foreign_keys (avoids mmap/WAL/page_size/temp_store issues on some FS).
+            # RF_SQLITE_MMAP_SIZE=0 and RF_SQLITE_JOURNAL_MODE=DELETE help on NFS where full pragmas can I/O error.
+            if DBConfig.SAFE_MODE:
+                pragma_sql = f"""
+                PRAGMA busy_timeout={DBConfig.BUSY_TIMEOUT};
+                PRAGMA foreign_keys=ON;
+                """
+            else:
+                journal = (
+                    DBConfig.JOURNAL_MODE
+                    if DBConfig.JOURNAL_MODE
+                    in ("WAL", "DELETE", "TRUNCATE", "PERSIST", "OFF", "MEMORY")
+                    else "WAL"
+                )
+                pragma_sql = f"""
+                PRAGMA cache_size={DBConfig.CACHE_SIZE};
+                PRAGMA mmap_size={DBConfig.MMAP_SIZE};
+                PRAGMA page_size={DBConfig.PAGE_SIZE};
+                PRAGMA busy_timeout={DBConfig.BUSY_TIMEOUT};
+                PRAGMA journal_mode={journal};
+                PRAGMA synchronous=NORMAL;
+                PRAGMA temp_store=MEMORY;
+                PRAGMA foreign_keys=ON;
+                """
             _ = self.conn.executescript(pragma_sql)
 
             self.cursor: sqlite3.Cursor = self.conn.cursor()

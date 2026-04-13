@@ -27,17 +27,28 @@ class DatabaseInterface:
                 isolation_level=None,
             )
 
-            journal = DBConfig.JOURNAL_MODE if DBConfig.JOURNAL_MODE in ("WAL", "DELETE", "TRUNCATE", "PERSIST", "OFF", "MEMORY") else "WAL"
-            pragma_sql = f"""
-            PRAGMA cache_size={DBConfig.CACHE_SIZE};
-            PRAGMA mmap_size={DBConfig.MMAP_SIZE};
-            PRAGMA page_size={DBConfig.PAGE_SIZE};
-            PRAGMA busy_timeout={DBConfig.BUSY_TIMEOUT};
-            PRAGMA journal_mode={journal};
-            PRAGMA synchronous=NORMAL;
-            PRAGMA temp_store=MEMORY;
-            PRAGMA foreign_keys=ON;
-            """
+            if DBConfig.SAFE_MODE:
+                pragma_sql = f"""
+                PRAGMA busy_timeout={DBConfig.BUSY_TIMEOUT};
+                PRAGMA foreign_keys=ON;
+                """
+            else:
+                journal = (
+                    DBConfig.JOURNAL_MODE
+                    if DBConfig.JOURNAL_MODE
+                    in ("WAL", "DELETE", "TRUNCATE", "PERSIST", "OFF", "MEMORY")
+                    else "WAL"
+                )
+                pragma_sql = f"""
+                PRAGMA cache_size={DBConfig.CACHE_SIZE};
+                PRAGMA mmap_size={DBConfig.MMAP_SIZE};
+                PRAGMA page_size={DBConfig.PAGE_SIZE};
+                PRAGMA busy_timeout={DBConfig.BUSY_TIMEOUT};
+                PRAGMA journal_mode={journal};
+                PRAGMA synchronous=NORMAL;
+                PRAGMA temp_store=MEMORY;
+                PRAGMA foreign_keys=ON;
+                """
             _ = self.conn.executescript(pragma_sql)
 
             self.cursor: sqlite3.Cursor = self.conn.cursor()

@@ -165,6 +165,7 @@ class DBConfig:
     PAGE_SIZE: int = int(os.getenv("RF_SQLITE_PAGE_SIZE", "4096"))
     BUSY_TIMEOUT: int = int(os.getenv("RF_SQLITE_BUSY_TIMEOUT", "30000"))
     JOURNAL_MODE: str = os.getenv("RF_SQLITE_JOURNAL_MODE", "WAL").strip().upper()
+    SAFE_MODE: bool = os.getenv("RF_SQLITE_SAFE_MODE", "").strip().lower() in ("1", "true", "yes")
 
     # Retry settings
     DEFAULT_MAX_RETRIES: int = 3
