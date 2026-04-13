@@ -33,11 +33,13 @@ class DBConfig:
     # Connection settings
     CONNECTION_TIMEOUT: float = 30.0
 
-    # Performance optimizations
-    CACHE_SIZE: int = 10000
-    MMAP_SIZE: int = 268435456  # 256MB
-    PAGE_SIZE: int = 4096
-    BUSY_TIMEOUT: int = 30000
+    # Performance optimizations (override with env if SQLite reports disk I/O on NFS, etc.)
+    CACHE_SIZE: int = int(os.getenv("RF_SQLITE_CACHE_SIZE", "10000"))
+    MMAP_SIZE: int = int(os.getenv("RF_SQLITE_MMAP_SIZE", "268435456"))  # 256MB; set 0 to disable mmap
+    PAGE_SIZE: int = int(os.getenv("RF_SQLITE_PAGE_SIZE", "4096"))
+    BUSY_TIMEOUT: int = int(os.getenv("RF_SQLITE_BUSY_TIMEOUT", "30000"))
+    # WAL can fail on some network filesystems; use DELETE via RF_SQLITE_JOURNAL_MODE=DELETE
+    JOURNAL_MODE: str = os.getenv("RF_SQLITE_JOURNAL_MODE", "WAL").strip().upper()
 
     # Retry settings
     DEFAULT_MAX_RETRIES: int = 3
