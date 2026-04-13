@@ -40,6 +40,15 @@ if ! command -v $RF_PIP_EXECUTABLE &> /dev/null; then
     RF_PIP_EXECUTABLE=pip
 fi
 
+# Version line for logs (works when console_scripts entry "rapidfireai" is not on PATH)
+get_rf_version_line() {
+    if command -v rapidfireai &> /dev/null; then
+        rapidfireai --version
+    else
+        "${RF_PYTHON_EXECUTABLE}" -m rapidfireai.cli --version 2>/dev/null || echo "RapidFire AI"
+    fi
+}
+
 # Converge mode: all (backend+frontend), none (original frontend only), backend, frontend
 RF_CONVERGE_MODE=${RF_CONVERGE_MODE:=all}
 CONVERGE_FOUND=$(${RF_PIP_EXECUTABLE} show rapidfireai-pro >/dev/null 2>&1; echo $?)
@@ -716,7 +725,7 @@ show_status() {
     else
         rf_mode="unknown"
     fi
-    rf_version=$(rapidfireai --version)
+    rf_version=$(get_rf_version_line)
     print_status "${rf_version} Services Status, Mode: ${rf_mode}"
     echo "================================================"
 
@@ -951,7 +960,7 @@ start_services() {
 
 # Main execution
 main() {
-    rf_version=$(rapidfireai --version)
+    rf_version=$(get_rf_version_line)
     print_status "Starting ${rf_version} services..."
 
     # Set up signal handlers for cleanup
