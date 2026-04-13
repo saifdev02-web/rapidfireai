@@ -27,13 +27,13 @@ class DatabaseInterface:
                 isolation_level=None,
             )
 
-            # Configure database with all PRAGMA settings
+            journal = DBConfig.JOURNAL_MODE if DBConfig.JOURNAL_MODE in ("WAL", "DELETE", "TRUNCATE", "PERSIST", "OFF", "MEMORY") else "WAL"
             pragma_sql = f"""
             PRAGMA cache_size={DBConfig.CACHE_SIZE};
             PRAGMA mmap_size={DBConfig.MMAP_SIZE};
             PRAGMA page_size={DBConfig.PAGE_SIZE};
             PRAGMA busy_timeout={DBConfig.BUSY_TIMEOUT};
-            PRAGMA journal_mode=WAL;
+            PRAGMA journal_mode={journal};
             PRAGMA synchronous=NORMAL;
             PRAGMA temp_store=MEMORY;
             PRAGMA foreign_keys=ON;
