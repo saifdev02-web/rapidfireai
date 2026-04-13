@@ -12,8 +12,8 @@ import shutil
 import site
 import subprocess
 import sys
+import sysconfig
 from pathlib import Path
-from importlib.resources import files
 from rapidfireai.utils.get_ip_address import get_ip_address
 from rapidfireai.utils.python_info import get_python_info
 from rapidfireai.utils.constants import DispatcherConfig, JupyterConfig, ColabConfig, MLflowConfig
@@ -24,6 +24,65 @@ from rapidfireai.utils.gpu_info import get_compute_capability
 from .version import __version__
 
 RF_CONVERGE_MODE = os.getenv("RF_CONVERGE_MODE", "all")
+
+
+def _purelib() -> Path:
+    return Path(sysconfig.get_path("purelib"))
+
+
+def _tutorial_notebooks_source() -> Path | None:
+    """Locate bundled tutorial notebooks (editable git checkout vs wheel/sdist install)."""
+    override = os.environ.get("RF_TUTORIAL_SOURCE")
+    if override:
+        p = Path(override).expanduser().resolve()
+        if p.is_dir():
+            return p
+    # Editable install / running from clone: repo_root/tutorial_notebooks
+    repo_root = Path(__file__).resolve().parent.parent
+    candidates = [
+        repo_root / "tutorial_notebooks",
+        _purelib() / "tutorial_notebooks",
+        _purelib() / "rapidfireai" / "tutorial_notebooks",
+    ]
+    try:
+        sp0 = Path(site.getsitepackages()[0])
+        candidates.extend(
+            [
+                sp0 / "tutorial_notebooks",
+                sp0 / "rapidfireai" / "tutorial_notebooks",
+            ]
+        )
+    except (IndexError, TypeError):
+        pass
+    for c in candidates:
+        if c.is_dir():
+            return c
+    return None
+
+
+def _test_notebooks_source() -> Path | None:
+    """Locate bundled test notebooks for --test-notebooks."""
+    repo_root = Path(__file__).resolve().parent.parent
+    candidates = [
+        repo_root / "tests" / "notebooks",
+        _purelib() / "tests" / "notebooks",
+        _purelib() / "rapidfireai" / "tests" / "notebooks",
+    ]
+    try:
+        sp0 = Path(site.getsitepackages()[0])
+        candidates.extend(
+            [
+                sp0 / "tests" / "notebooks",
+                sp0 / "rapidfireai" / "tests" / "notebooks",
+            ]
+        )
+    except (IndexError, TypeError):
+        pass
+    for c in candidates:
+        if c.is_dir():
+            return c
+    return None
+
 
 def get_script_path():
     """Get the path to the start.sh script.
@@ -286,10 +345,16 @@ def install_packages(evals: bool = False, init_packages: list[str] | None = None
 def copy_tutorial_notebooks():
     """Copy the tutorial notebooks to the project."""
     print("Getting tutorial notebooks...")
+    tutorial_path = os.getenv("RF_TUTORIAL_PATH", os.path.join(".", "tutorial_notebooks"))
+    source_path = _tutorial_notebooks_source()
+    if source_path is None:
+        print(f"❌ Failed to copy notebooks to {tutorial_path}")
+        print(
+            "   Could not find bundled tutorial_notebooks (expected next to the rapidfireai package, "
+            "or under site-packages). Set RF_TUTORIAL_SOURCE to your checkout's tutorial_notebooks directory."
+        )
+        return 1
     try:
-        tutorial_path = os.getenv("RF_TUTORIAL_PATH", os.path.join(".", "tutorial_notebooks"))
-        site_packages_path = site.getsitepackages()[0]
-        source_path = os.path.join(site_packages_path, "tutorial_notebooks")
         print(f"Copying tutorial notebooks from {source_path} to {tutorial_path}...")
         os.makedirs(tutorial_path, exist_ok=True)
         shutil.copytree(source_path, tutorial_path, dirs_exist_ok=True)
@@ -315,10 +380,13 @@ def run_init(evals: bool = False):
 def copy_test_notebooks():
     """Copy the test notebooks to the project."""
     print("Getting test notebooks...")
+    test_path = os.getenv("RF_TEST_PATH", os.path.join(".", "tutorial_notebooks", "tests"))
+    source_path = _test_notebooks_source()
+    if source_path is None:
+        print(f"❌ Failed to copy test notebooks to {test_path}")
+        print("   Could not find bundled tests/notebooks under the repo or site-packages.")
+        return 1
     try:
-        test_path = os.getenv("RF_TEST_PATH", os.path.join(".", "tutorial_notebooks", "tests"))
-        site_packages_path = site.getsitepackages()[0]
-        source_path = os.path.join(site_packages_path, "tests", "notebooks")
         print(f"Copying test notebooks from {source_path} to {test_path}...")
         os.makedirs(test_path, exist_ok=True)
         shutil.copytree(source_path, test_path, dirs_exist_ok=True)
