@@ -27,29 +27,7 @@ class DatabaseInterface:
                 isolation_level=None,
             )
 
-            if DBConfig.SAFE_MODE:
-                pragma_sql = f"""
-                PRAGMA busy_timeout={DBConfig.BUSY_TIMEOUT};
-                PRAGMA foreign_keys=ON;
-                """
-            else:
-                journal = (
-                    DBConfig.JOURNAL_MODE
-                    if DBConfig.JOURNAL_MODE
-                    in ("WAL", "DELETE", "TRUNCATE", "PERSIST", "OFF", "MEMORY")
-                    else "WAL"
-                )
-                pragma_sql = f"""
-                PRAGMA cache_size={DBConfig.CACHE_SIZE};
-                PRAGMA mmap_size={DBConfig.MMAP_SIZE};
-                PRAGMA page_size={DBConfig.PAGE_SIZE};
-                PRAGMA busy_timeout={DBConfig.BUSY_TIMEOUT};
-                PRAGMA journal_mode={journal};
-                PRAGMA synchronous=NORMAL;
-                PRAGMA temp_store=MEMORY;
-                PRAGMA foreign_keys=ON;
-                """
-            _ = self.conn.executescript(pragma_sql)
+            self._configure_sqlite_pragmas()
 
             self.cursor: sqlite3.Cursor = self.conn.cursor()
 
@@ -57,6 +35,49 @@ class DatabaseInterface:
             raise Exception(f"Failed to initialize database connection: {e}") from e
         except Exception as e:
             raise Exception(f"Unexpected error during database initialization: {e}") from e
+
+    def _configure_sqlite_pragmas(self) -> None:
+        """Apply PRAGMAs; fall back to minimal set on disk I/O errors (NFS / mmap / WAL)."""
+        busy = getattr(DBConfig, "BUSY_TIMEOUT", 30000)
+        minimal_sql = f"""
+        PRAGMA busy_timeout={busy};
+        PRAGMA foreign_keys=ON;
+        """
+        if getattr(DBConfig, "SAFE_MODE", False):
+            _ = self.conn.executescript(minimal_sql)
+            return
+
+        journal = getattr(DBConfig, "JOURNAL_MODE", "WAL")
+        if journal not in ("WAL", "DELETE", "TRUNCATE", "PERSIST", "OFF", "MEMORY"):
+            journal = "WAL"
+        full_sql = f"""
+        PRAGMA cache_size={DBConfig.CACHE_SIZE};
+        PRAGMA mmap_size={DBConfig.MMAP_SIZE};
+        PRAGMA page_size={DBConfig.PAGE_SIZE};
+        PRAGMA busy_timeout={DBConfig.BUSY_TIMEOUT};
+        PRAGMA journal_mode={journal};
+        PRAGMA synchronous=NORMAL;
+        PRAGMA temp_store=MEMORY;
+        PRAGMA foreign_keys=ON;
+        """
+        try:
+            _ = self.conn.executescript(full_sql)
+        except sqlite3.OperationalError as e:
+            err = str(e).lower()
+            if "disk" in err and "i/o" in err:
+                self.conn.close()
+                self.conn = sqlite3.connect(
+                    DBConfig.DB_PATH,
+                    timeout=DBConfig.CONNECTION_TIMEOUT,
+                    check_same_thread=False,
+                    isolation_level=None,
+                )
+                _ = self.conn.executescript(minimal_sql)
+                print(
+                    "RapidFire: SQLite disk I/O on default PRAGMAs; retrying with minimal PRAGMAs only."
+                )
+            else:
+                raise
 
     @staticmethod
     def retry_on_locked(
